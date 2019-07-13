@@ -1,0 +1,6 @@
+cc_binary(
+    name = "intern",
+    srcs = ["intern.cpp"],
+    copts = ["-std=c++17"],
+    linkopts = ["-ltbb"],
+)

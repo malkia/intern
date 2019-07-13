@@ -1,3 +1,7 @@
+/.vscode
+/bazel.iml
+/bazel-*
+
 # Prerequisites
 *.d
 
