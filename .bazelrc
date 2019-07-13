@@ -1,0 +1,15 @@
+# sudo apt install gcc-snapshot
+# bazel run --config=gcc-snapshot pmr
+build:gcc-snapshot --action_env=CC=/usr/lib/gcc-snapshot/bin/g++
+build:gcc-snapshot --action_env=LD_LIBRARY_PATH=/usr/lib/gcc-snapshot/lib
+build:gcc-snapshot --cxxopt=-std=c++17
+
+# bazel run --config=msvc pmr
+build:msvc --action_env='BAZEL_SH=C:/tools/msys64/usr/bin/bash.exe'
+#build:msvc --action_env='BAZEL_VS=C:/Program Files (x86)/Microsoft Visual Studio/2017/Professional'
+build:msvc --action_env='BAZEL_VS'
+build:msvc --action_env='BAZEL_VC=C:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC'
+build:msvc --cxxopt=/std:c++17
+
+test --test_output=all
+
