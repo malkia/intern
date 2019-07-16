@@ -70,7 +70,6 @@ class StringPool {
     }
   };
 
-  std::condition_variable m_cv;
   size_t m_pageSize{ 0 };
   std::mutex m_pageAllocateMutex;
   alignas(std::hardware_destructive_interference_size) std::atomic<Page*> m_page{ nullptr };
@@ -105,7 +104,7 @@ class StringPool {
         if( oldPage )
         {
           m_pages.insert( oldPage );
-          printf( "Old page %p, used=%zu\n", oldPage, oldPage->m_used.load() );
+          //printf( "Old page %p, used=%zu\n", oldPage, oldPage->m_used.load() );
         }
         return newPage;
       }
@@ -220,15 +219,10 @@ int main(int argc, const char *argv[]) {
   for (int i = 0; i < p.size(); i++)
     p[i] = i;
 
+  concurrent_unordered_set<std::string> cset;
   StringPool pool(poolSize);
 
   printf("inited...\n");
-  pool.Intern("one");
-  pool.Intern("two");
-  pool.Intern("three");
-  pool.Intern("one");
-  pool.Intern("one");
-  pool.Intern("one");
 
   int primes[] = {1, 2, 3, 5, 7, 59, 97, 229, 379, 541};
   for (int pi = 0; pi < std::size(primes); pi++) {
@@ -245,7 +239,6 @@ int main(int argc, const char *argv[]) {
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
-      /*
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
@@ -253,7 +246,7 @@ int main(int argc, const char *argv[]) {
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
-        "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
+/*       "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
         "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest"
@@ -264,15 +257,28 @@ int main(int argc, const char *argv[]) {
       p.first.assign(buf);
       p.second = (idx / prime) % strings.size();
     });
-    auto t1 = std::chrono::steady_clock::now();
-    printf( "time=%.4f ", (t1-t0).count() / 1e9);
-    for(int steps=0;steps<1024;steps++)
-    std::for_each(std::execution::par, p.begin(), p.end(), [&](int& d) {
-      const auto& p = strings[d];
-      const auto sv0 = pool.Intern(strings[p.second].first);
-    });
-    auto t2 = std::chrono::steady_clock::now();
-    printf( "time=%.4f ", (t2-t1).count() / 1e9);
+    for( int i=0; i<4; i++ )
+    {
+      auto t1 = std::chrono::steady_clock::now();
+      for(int steps=0;steps<64;steps++)
+        std::for_each(std::execution::par, p.begin(), p.end(), [&](int& d) {
+          const auto& p = strings[d];
+          const auto sv0 = pool.Intern(strings[p.second].first);
+        });
+      auto t2 = std::chrono::steady_clock::now();
+      printf( "pool time=%.4f\n", (t2-t1).count() / 1e9);
+      t2 = std::chrono::steady_clock::now();
+      for(int steps=0;steps<64;steps++)
+        std::for_each(std::execution::par, p.begin(), p.end(), [&](int& d) {
+          const auto& p = strings[d];
+          const auto& s = strings[p.second].first;
+          const auto it = cset.find(s);
+          if( it == cset.cend() )
+            cset.insert(strings[p.second].first);
+        });
+      auto t3 = std::chrono::steady_clock::now();
+      printf( "cset time=%.4f\n", (t3-t2).count() / 1e9);
+    }
     PrintStats(pool);
   }
   return 0;
